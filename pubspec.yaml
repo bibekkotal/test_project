@@ -1,0 +1,58 @@
+name: test_project
+description: "A new Flutter project."
+publish_to: 'none'
+
+version: 1.0.0+1
+
+environment:
+  sdk: '>=3.4.3 <4.0.0'
+
+dependencies:
+  flutter:
+    sdk: flutter
+  cupertino_icons: ^1.0.6
+  intl: ^0.20.2
+  flutter_bloc: ^9.1.0
+  equatable: ^2.0.7
+  dio: ^5.8.0+1
+  flutter_screenutil: ^5.9.3
+  flutter_svg: ^2.0.17
+  cached_network_image: ^3.4.1
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  flutter_lints: ^3.0.0
+
+flutter:
+  uses-material-design: true
+  assets:
+    - assets/images/
+    - assets/svgs/
+
+  fonts:
+    - family: Rany
+      fonts:
+        - asset: assets/fonts/Rany.otf
+        - asset: assets/fonts/Rany-Bold.otf
+          weight: 700
+        - asset: assets/fonts/Rany-Italic.otf
+          style: italic
+        - asset: assets/fonts/Rany-Light.otf
+          weight: 300
+        - asset: assets/fonts/Rany-Light Italic.otf
+          weight: 300
+          style: italic
+        - asset: assets/fonts/Rany-Medium.otf
+          weight: 500
+    - family: Rewalt
+      fonts:
+        - asset: assets/fonts/rewalt-regular.otf
+        - asset: assets/fonts/rewalt-bold.otf
+          weight: 700
+        - asset: assets/fonts/rewalt-light.otf
+          weight: 300
+        - asset: assets/fonts/rewalt-medium.otf
+          weight: 500
+        - asset: assets/fonts/rewalt-thin.otf
+          weight: 100
