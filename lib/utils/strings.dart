@@ -10,3 +10,11 @@ class StaticStrings {
   static String light = 'Light';
   static String yogaGroup = 'Yoga Group';
 }
+
+class API {
+  API._();
+  static String baseUrl = 'https://fitness.wigian.in';
+  static String plan = '/user_plan_api.php';
+}
+
+//https://fitness.wigian.in/user_plan_api.php?date=2025-11-25

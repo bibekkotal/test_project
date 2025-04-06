@@ -1,7 +1,10 @@
 import 'dart:math';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:intl/intl.dart';
+import '../../data/plan_response.dart';
+import '../../services/plan_services.dart';
 import '../../utils/app_exports.dart';
+import '../../utils/colorful_log.dart';
 import '../../widgets/appbar.dart';
 import 'bloc/home_bloc.dart';
 
@@ -27,10 +30,15 @@ class _HomeScreenState extends State<HomeScreen> {
     super.initState();
   }
 
+  late HomeBloc homeBloc;
+
   @override
   Widget build(BuildContext context) {
+    String today = DateFormat('yyyy-MM-dd').format(DateTime.now());
     return BlocProvider(
-      create: (_) => HomeBloc()..add(GenerateWeekDatesEvent()),
+      create: (_) => HomeBloc(PlanServices())
+        ..add(GenerateWeekDatesEvent())
+        ..add(GetPlansByDateEvent(today)),
       child: Scaffold(
         backgroundColor: AppColors.white,
         body: SafeArea(
@@ -52,14 +60,17 @@ class _HomeScreenState extends State<HomeScreen> {
                         children: [
                           SizedBox(height: 10.h),
                           _topBannerSection(context),
-                          BlocBuilder<HomeBloc, HomeState>(
+                          BlocConsumer<HomeBloc, HomeState>(
+                            listener: (context, state) {},
                             builder: (context, state) {
+                              homeBloc = context.read<HomeBloc>();
                               return _dateSelector(context, state.weekDates,
                                   state.selectedIndex);
                             },
                           ),
                           _planSection(context,
                               'https://xinva.ai/wp-content/uploads/2023/12/106.jpg'),
+                          _buildPlansList(context),
                           SizedBox(height: 70.h),
                         ],
                       ),
@@ -456,20 +467,305 @@ class _HomeScreenState extends State<HomeScreen> {
     double mediaWidth = MediaQuery.sizeOf(context).width;
     double mediaHeight = MediaQuery.sizeOf(context).height;
     return Padding(
-      padding: EdgeInsets.symmetric(vertical: 15.h, horizontal: 15.w),
+      padding:
+          EdgeInsets.only(top: 15.h, left: 15.w, right: 15.w, bottom: 10.h),
       child: Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Align(
-            alignment: Alignment.topLeft,
-            child: Text(
-              StaticStrings.yourPlan,
-              style: TextStyle(
-                color: AppColors.black,
-                fontWeight: FontWeight.w500,
-                fontSize: 25.sp,
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                StaticStrings.yourPlan,
+                style: TextStyle(
+                  color: AppColors.black,
+                  fontWeight: FontWeight.w500,
+                  fontSize: 25.sp,
+                ),
               ),
-            ),
+              ElevatedButton(
+                onPressed: () {
+                  final _formKey = GlobalKey<FormState>();
+
+                  final titleController = TextEditingController();
+                  final roomController = TextEditingController();
+                  final trainerController = TextEditingController();
+                  String selectedLevel = 'Medium';
+
+                  TimeOfDay? startTime;
+                  TimeOfDay? endTime;
+                  final timeController = TextEditingController();
+
+                  Future<void> pickTimeRange() async {
+                    startTime = await showTimePicker(
+                      context: context,
+                      initialTime: TimeOfDay.now(),
+                    );
+                    if (startTime != null) {
+                      endTime = await showTimePicker(
+                        context: context,
+                        initialTime: startTime!,
+                      );
+                      if (endTime != null) {
+                        timeController.text =
+                            '${startTime!.format(context)}-${endTime!.format(context)}';
+                      }
+                    }
+                  }
+
+                  void onCreatePlan(PlanUpdatePayload plan) {
+                    homeBloc.add(SendUpdatePlansEvent(payload: plan));
+                  }
+
+                  showDialog(
+                    context: context,
+                    builder: (ctx) {
+                      return Dialog(
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(25.r),
+                        ),
+                        child: Padding(
+                          padding: EdgeInsets.all(20.w),
+                          child: SingleChildScrollView(
+                            child: Form(
+                              key: _formKey,
+                              autovalidateMode:
+                                  AutovalidateMode.onUserInteraction,
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                children: [
+                                  TextFormField(
+                                    controller: titleController,
+                                    decoration: InputDecoration(
+                                      hintText: 'Title',
+                                      filled: true,
+                                      fillColor:
+                                          AppColors.orange.withOpacity(0.1),
+                                      border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(20.r),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      contentPadding: EdgeInsets.symmetric(
+                                          horizontal: 15.w, vertical: 12.h),
+                                    ),
+                                    maxLength: 15,
+                                    validator: (value) {
+                                      if (value == null ||
+                                          value.trim().isEmpty) {
+                                        return 'Title is required';
+                                      }
+                                      return null;
+                                    },
+                                  ),
+                                  SizedBox(height: 12.h),
+                                  FormField<String>(
+                                    initialValue: selectedLevel,
+                                    builder: (FormFieldState<String> state) {
+                                      return Container(
+                                        padding: EdgeInsets.symmetric(
+                                            horizontal: 15.w),
+                                        decoration: BoxDecoration(
+                                          color:
+                                              AppColors.orange.withOpacity(0.1),
+                                          borderRadius:
+                                              BorderRadius.circular(20.r),
+                                          border: state.hasError
+                                              ? Border.all(
+                                                  color: Colors.red, width: 1)
+                                              : null,
+                                        ),
+                                        child: DropdownButtonFormField<String>(
+                                          value: selectedLevel,
+                                          isExpanded: true,
+                                          decoration: InputDecoration(
+                                            border: InputBorder.none,
+                                            errorText: state.errorText,
+                                            errorStyle: TextStyle(
+                                              color: Colors.red,
+                                              fontSize: 12.sp,
+                                            ),
+                                          ),
+                                          dropdownColor: AppColors.white,
+                                          items: ['Medium', 'Light']
+                                              .map((e) => DropdownMenuItem(
+                                                    value: e,
+                                                    child: Text(
+                                                      e,
+                                                      style: TextStyle(
+                                                          fontSize: 14.sp),
+                                                    ),
+                                                  ))
+                                              .toList(),
+                                          onChanged: (value) {
+                                            if (value != null) {
+                                              selectedLevel = value;
+                                              state.didChange(value);
+                                            }
+                                          },
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  SizedBox(height: 12.h),
+                                  FormField<String>(
+                                    initialValue: timeController.text,
+                                    validator: (value) {
+                                      if (value == null || value.isEmpty) {
+                                        return 'Time is required';
+                                      }
+                                      return null;
+                                    },
+                                    builder: (FormFieldState<String> state) {
+                                      return GestureDetector(
+                                        onTap: () async {
+                                          await pickTimeRange();
+                                          state.didChange(timeController.text);
+                                        },
+                                        child: AbsorbPointer(
+                                          child: Container(
+                                            padding: EdgeInsets.symmetric(
+                                                vertical: 8.h),
+                                            child: TextField(
+                                              controller: timeController,
+                                              readOnly: true,
+                                              decoration: InputDecoration(
+                                                labelText:
+                                                    'Time (e.g. 14:00-15:00)',
+                                                filled: true,
+                                                fillColor: AppColors.orange
+                                                    .withOpacity(0.1),
+                                                border: OutlineInputBorder(
+                                                  borderRadius:
+                                                      BorderRadius.circular(
+                                                          20.r),
+                                                  borderSide: BorderSide.none,
+                                                ),
+                                                suffixIcon: Icon(
+                                                    Icons.access_time,
+                                                    color: AppColors.darkPink),
+                                                errorText: state.errorText,
+                                              ),
+                                            ),
+                                          ),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                  SizedBox(height: 12.h),
+                                  TextFormField(
+                                    controller: roomController,
+                                    decoration: InputDecoration(
+                                      hintText: 'Room',
+                                      filled: true,
+                                      fillColor:
+                                          AppColors.orange.withOpacity(0.1),
+                                      border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(20.r),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      contentPadding: EdgeInsets.symmetric(
+                                          horizontal: 15.w, vertical: 12.h),
+                                    ),
+                                    validator: (value) {
+                                      if (value == null ||
+                                          value.trim().isEmpty) {
+                                        return 'Room is required';
+                                      }
+                                      return null;
+                                    },
+                                    maxLength: 2,
+                                  ),
+                                  SizedBox(height: 12.h),
+                                  TextFormField(
+                                    controller: trainerController,
+                                    decoration: InputDecoration(
+                                      hintText: 'Trainer',
+                                      filled: true,
+                                      fillColor:
+                                          AppColors.orange.withOpacity(0.1),
+                                      border: OutlineInputBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(20.r),
+                                        borderSide: BorderSide.none,
+                                      ),
+                                      contentPadding: EdgeInsets.symmetric(
+                                          horizontal: 15.w, vertical: 12.h),
+                                    ),
+                                    validator: (value) {
+                                      if (value == null ||
+                                          value.trim().isEmpty) {
+                                        return 'Trainer name is required';
+                                      }
+                                      return null;
+                                    },
+                                    maxLength: 15,
+                                    maxLengthEnforcement:
+                                        MaxLengthEnforcement.none,
+                                    buildCounter: (_,
+                                            {required currentLength,
+                                            required isFocused,
+                                            required maxLength}) =>
+                                        null,
+                                  ),
+                                  SizedBox(height: 20.h),
+                                  ElevatedButton(
+                                    onPressed: () {
+                                      if (_formKey.currentState!.validate()) {
+                                        final plan = PlanUpdatePayload(
+                                          title: titleController.text,
+                                          level: selectedLevel,
+                                          time: timeController.text,
+                                          room: roomController.text,
+                                          trainer: trainerController.text,
+                                        );
+                                        onCreatePlan(plan);
+                                        Navigator.pop(ctx);
+                                      }
+                                    },
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.darkPink,
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius:
+                                            BorderRadius.circular(20.r),
+                                      ),
+                                    ),
+                                    child: Text(
+                                      'Save Plan',
+                                      style: TextStyle(
+                                        fontSize: 14.sp,
+                                        color: AppColors.white,
+                                      ),
+                                    ),
+                                  )
+                                ],
+                              ),
+                            ),
+                          ),
+                        ),
+                      );
+                    },
+                  );
+                },
+                style: ElevatedButton.styleFrom(
+                  elevation: 0,
+                  padding: EdgeInsets.symmetric(horizontal: 20.w),
+                  backgroundColor: AppColors.indicatorColor.withOpacity(0.3),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(20.r),
+                  ),
+                ),
+                child: Text(
+                  'Add plan',
+                  style: TextStyle(
+                    fontSize: 15.sp,
+                    fontWeight: FontWeight.w500,
+                    color: AppColors.white,
+                  ),
+                ),
+              ),
+            ],
           ),
           ConstrainedBox(
             constraints: BoxConstraints(
@@ -726,6 +1022,232 @@ class _HomeScreenState extends State<HomeScreen> {
               ),
             ),
           )
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlansList(BuildContext context) {
+    return BlocBuilder<HomeBloc, HomeState>(
+      builder: (context, state) {
+        final plans = state.userPlansData?.plans ?? [];
+
+        if (state.isLoading) {
+          return const Center(child: CircularProgressIndicator());
+        }
+
+        if (plans.isEmpty) {
+          return const SizedBox.shrink();
+        }
+
+        return Padding(
+          padding: EdgeInsets.symmetric(horizontal: 15.w),
+          child: GridView.builder(
+            shrinkWrap: true,
+            physics: const ClampingScrollPhysics(),
+            gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              crossAxisSpacing: 15.w,
+              mainAxisSpacing: 15.h,
+              childAspectRatio: 0.75,
+            ),
+            itemCount: plans.length,
+            itemBuilder: (context, index) {
+              final plan = plans[index];
+              final isMedium = plan.level.toLowerCase() == 'medium';
+              return isMedium
+                  ? _buildMediumPlanCard(plan)
+                  : _buildLightPlanCard(context, plan);
+            },
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildMediumPlanCard(Plan plan) {
+    return Container(
+      padding: EdgeInsets.symmetric(horizontal: 15.w, vertical: 15.h),
+      decoration: BoxDecoration(
+        color: AppColors.orange,
+        borderRadius: BorderRadius.circular(25.r),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: AppColors.white.withOpacity(0.3),
+              borderRadius: BorderRadius.circular(25.r),
+            ),
+            padding: EdgeInsets.symmetric(horizontal: 10.w, vertical: 3.h),
+            child: Text(
+              plan.level,
+              style: TextStyle(
+                color: AppColors.black,
+                fontWeight: FontWeight.w400,
+                fontSize: 10.sp,
+              ),
+            ),
+          ),
+          SizedBox(height: 20.h),
+          Text(
+            plan.title,
+            style: TextStyle(
+              color: AppColors.black,
+              fontWeight: FontWeight.w500,
+              fontSize: 20.sp,
+            ),
+          ),
+          SizedBox(height: 5.h),
+          Text(
+            plan.date ?? "",
+            style: TextStyle(
+              color: AppColors.black,
+              fontWeight: FontWeight.w400,
+              fontSize: 13.sp,
+            ),
+          ),
+          Text(
+            plan.time,
+            style: TextStyle(
+              color: AppColors.black,
+              fontWeight: FontWeight.w400,
+              fontSize: 13.sp,
+            ),
+          ),
+          Text(
+            plan.room,
+            style: TextStyle(
+              color: AppColors.black,
+              fontWeight: FontWeight.w400,
+              fontSize: 13.sp,
+            ),
+          ),
+          const Spacer(),
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 15.h,
+                backgroundImage: const AssetImage(AppImages.userPlaceHolder),
+              ),
+              SizedBox(width: 5.w),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      "Trainer",
+                      style: TextStyle(
+                        color: AppColors.black,
+                        fontWeight: FontWeight.w400,
+                        fontSize: 13.sp,
+                      ),
+                    ),
+                    Text(
+                      plan.trainer,
+                      style: TextStyle(
+                        fontSize: 13.sp,
+                        fontWeight: FontWeight.w500,
+                      ),
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildLightPlanCard(BuildContext context, Plan plan) {
+    return SizedBox(
+      child: Column(
+        children: [
+          Expanded(
+            flex: 4,
+            child: Container(
+              width: double.infinity,
+              padding: EdgeInsets.symmetric(horizontal: 15.w, vertical: 15.h),
+              decoration: BoxDecoration(
+                color: AppColors.cyanLight,
+                borderRadius: BorderRadius.circular(25.r),
+              ),
+              child: Stack(
+                clipBehavior: Clip.none,
+                children: [
+                  Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Container(
+                        decoration: BoxDecoration(
+                          color: AppColors.white.withOpacity(0.3),
+                          borderRadius: BorderRadius.circular(25.r),
+                        ),
+                        padding: EdgeInsets.symmetric(
+                            horizontal: 10.w, vertical: 3.h),
+                        child: Text(
+                          plan.level,
+                          style: TextStyle(
+                            color: AppColors.black,
+                            fontWeight: FontWeight.w400,
+                            fontSize: 10.sp,
+                          ),
+                        ),
+                      ),
+                      SizedBox(height: 20.h),
+                      Text(
+                        plan.title,
+                        style: TextStyle(
+                          color: AppColors.black,
+                          fontWeight: FontWeight.w500,
+                          fontSize: 20.sp,
+                        ),
+                      ),
+                      SizedBox(height: 5.h),
+                      Text(
+                        plan.date ?? "",
+                        style: TextStyle(
+                          color: AppColors.black,
+                          fontWeight: FontWeight.w400,
+                          fontSize: 13.sp,
+                        ),
+                      ),
+                      Text(
+                        plan.time,
+                        style: TextStyle(
+                          color: AppColors.black,
+                          fontWeight: FontWeight.w400,
+                          fontSize: 13.sp,
+                        ),
+                      ),
+                      Text(
+                        plan.room,
+                        style: TextStyle(
+                          color: AppColors.black,
+                          fontWeight: FontWeight.w400,
+                          fontSize: 13.sp,
+                        ),
+                      ),
+                    ],
+                  ),
+                  // Banner image
+                  Positioned(
+                    bottom: -10,
+                    right: -20,
+                    child: Image.asset(
+                      AppImages.banner2,
+                      width: 100.w,
+                      height: 100.h,
+                      fit: BoxFit.contain,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );

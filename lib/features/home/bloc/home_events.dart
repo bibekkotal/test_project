@@ -24,3 +24,19 @@ class ChangeBottomTabIndexEvent extends HomeEvent {
   @override
   List<Object?> get props => [index];
 }
+
+class GetPlansByDateEvent extends HomeEvent {
+  final String date;
+  GetPlansByDateEvent(this.date);
+}
+
+class SendUpdatePlansEvent extends HomeEvent {
+  final PlanUpdatePayload payload;
+  SendUpdatePlansEvent({required this.payload});
+}
+
+class AddOrUpdatePlansEvent extends HomeEvent {
+  final String date;
+  final AddUpdatePlanPayload payload;
+  AddOrUpdatePlansEvent({required this.date, required this.payload});
+}
